@@ -1,14 +1,30 @@
 const express = require('express');
+const connectDB = require('./src/config/db'); // Path to your db.js file
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('./src/models/User'); // Importera din User-modell
-const app = express();
 
+const app = express();
+const port = 5000;
+
+// Load environment variables from .env file
+require('dotenv').config(); // Load environment variables from .env file
+
+// Check if JWT_SECRET is loaded properly
+console.log('JWT_SECRET:', process.env.JWT_SECRET);  // This will log the value of JWT_SECRET
+
+// Connect to MongoDB
+connectDB();
+
+// Middleware and routes setup (your other code)
 app.use(express.json());
 
-// JWT secret key (denna ska vara hemlig, använd miljövariabler i en riktig applikation)
-const JWT_SECRET = 'your_jwt_secret';
+// Check if JWT_SECRET is defined in environment variables
+if (!process.env.JWT_SECRET) {
+  console.error('JWT_SECRET is not defined. Please set it in your .env file.');
+  process.exit(1); // Exit the process if JWT_SECRET is not found
+}
 
 // **Create** - POST request to create a new user
 app.post('/users', async (req, res) => {
@@ -40,8 +56,13 @@ app.post('/login', async (req, res) => {
   }
 
   // Create a JWT token
-  const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
   res.json({ token });
+});
+
+// Example route
+app.get('/', (req, res) => {
+  res.send('WELCOME INTO MY GALAXY!');
 });
 
 // **Protected Route** - Only accessible with a valid token
@@ -52,7 +73,7 @@ app.get('/protected', async (req, res) => {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id);
     res.status(200).json({ secretData: 'This is some secret data', user });
   } catch (error) {
@@ -61,4 +82,4 @@ app.get('/protected', async (req, res) => {
 });
 
 // Start server
-app.listen(5000, () => console.log('Server running on port 5000'));
+app.listen(port, () => console.log(`Server running on port ${port}`));
