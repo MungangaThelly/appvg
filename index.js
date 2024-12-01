@@ -1,84 +1,116 @@
 const express = require('express');
+const cors = require('cors');
 const connectDB = require('./src/config/db'); // Path to your db.js file
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('./src/models/User'); // Importera din User-modell
+const User = require('./src/models/User'); // Import your User model
 
 const app = express();
 const port = 5000;
 
-// Load environment variables from .env file
-require('dotenv').config(); // Load environment variables from .env file
+require('dotenv').config();  // Load environment variables from .env file
 
-// Check if JWT_SECRET is loaded properly
-console.log('JWT_SECRET:', process.env.JWT_SECRET);  // This will log the value of JWT_SECRET
+// Enable CORS for all routes
+app.use(cors());
 
 // Connect to MongoDB
 connectDB();
 
-// Middleware and routes setup (your other code)
+// Middleware and routes setup
 app.use(express.json());
 
-// Check if JWT_SECRET is defined in environment variables
-if (!process.env.JWT_SECRET) {
-  console.error('JWT_SECRET is not defined. Please set it in your .env file.');
-  process.exit(1); // Exit the process if JWT_SECRET is not found
-}
+// JWT secret key (this should be kept in .env or an environment variable)
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
-// **Create** - POST request to create a new user
+// **Create User Route**
 app.post('/users', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const newUser = new User({ username, password });
+    
+    // Check if the user already exists
+    const userExists = await User.findOne({ username });
+    if (userExists) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
 
-    // Hash the password before saving
+    // Hash the password before saving the user
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const newUser = new User({ username, password: hashedPassword });
     await newUser.save();
     res.status(201).json(newUser);
   } catch (error) {
+    console.error(error);
     res.status(400).json({ message: 'Error creating user', error: error.message });
   }
 });
 
-// **Login** - POST request to authenticate and return a JWT
+// **Login Route**
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  const user = await User.findOne({ username });
+  
+  try {
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
 
-  if (!user) {
-    return res.status(400).json({ message: 'Invalid credentials' });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
+    res.json({ token });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
-
-  // Check if the password is correct
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    return res.status(400).json({ message: 'Invalid credentials' });
-  }
-
-  // Create a JWT token
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-  res.json({ token });
 });
 
-// Example route
-app.get('/', (req, res) => {
-  res.send('WELCOME INTO MY GALAXY!');
+// **Get User by ID Route**
+app.get('/users/:id', async (req, res) => {
+  console.log('Request ID:', req.params.id); // Log the ID to see what ID is being passed
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.status(200).json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching user', error: error.message });
+  }
 });
 
 // **Protected Route** - Only accessible with a valid token
 app.get('/protected', async (req, res) => {
   const token = req.header('Authorization');
+  
   if (!token) {
     return res.status(401).json({ message: 'Access denied, no token provided' });
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
     res.status(200).json({ secretData: 'This is some secret data', user });
   } catch (error) {
-    res.status(400).json({ message: 'Invalid token' });
+    console.error(error);
+    res.status(400).json({ message: 'Invalid token', error: error.message });
   }
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!', error: err.message });
 });
 
 // Start server
