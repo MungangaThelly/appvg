@@ -1,3 +1,4 @@
+require('dotenv').config();  // Load environment variables from .env file
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./src/config/db'); // Path to your db.js file
@@ -9,16 +10,26 @@ const User = require('./src/models/User'); // Import your User model
 const app = express();
 const port = 5000;
 
-require('dotenv').config();  // Load environment variables from .env file
+// Middleware and routes setup
+app.use(express.json());
+
+// Enable CORS for all routes
+const corsOptions = {
+  origin: 'http://localhost:5000',  // Restrict to specific domains in production
+  methods: ['GET', 'POST'],
+};
+
 
 // Enable CORS for all routes
 app.use(cors());
 
 // Connect to MongoDB
-connectDB();
+mongoose.connect(process.env.MONGO_CONNECTION_STRING, {
 
-// Middleware and routes setup
-app.use(express.json());
+})
+  .then(() => console.log('MongoDB connected'))
+  .catch((err) => console.error('MongoDB connection error:', err));
+
 
 // JWT secret key (this should be kept in .env or an environment variable)
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
@@ -38,8 +49,13 @@ app.post('/users', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Create a new user instance
     const newUser = new User({ username, password: hashedPassword });
+    
+    // Save the new user to the database
     await newUser.save();
+
+    // Respond with the created user
     res.status(201).json(newUser);
   } catch (error) {
     console.error(error);
@@ -50,26 +66,40 @@ app.post('/users', async (req, res) => {
 // **Login Route**
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  
+  console.log('Received login request for username:', username);
+
   try {
     const user = await User.findOne({ username });
     if (!user) {
+      console.log('User not found');
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      console.log('Password mismatch');
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Generate JWT token
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
+    console.log('Login successful, token:', token);
     res.json({ token });
   } catch (error) {
-    console.error(error);
+    console.error('Error logging in:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
+
+// **Read** - GET request to get all users
+app.get('/users', async (req, res) => {
+  try {
+    const users = await User.find();
+    res.status(200).json(users); // Respond with all users
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching users', error: error.message });
+  }
+});
+
 
 // **Get User by ID Route**
 app.get('/users/:id', async (req, res) => {
@@ -85,6 +115,41 @@ app.get('/users/:id', async (req, res) => {
     res.status(500).json({ message: 'Error fetching user', error: error.message });
   }
 });
+
+// **Update** - PUT request to update a user's name by id
+app.put('/users/:id', async (req, res) => {
+  try {
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id, // Find user by _id
+      { username: req.body.username }, // Update username (you can also use other fields like `name`)
+      { new: true } // Return the updated document
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json(updatedUser); // Respond with the updated user
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating user', error: error.message });
+  }
+});
+
+// **Delete** - DELETE request to delete a user by id 
+app.delete('/users/:id', async (req, res) => {
+  try {
+    const result = await User.deleteOne({ _id: req.params.id }); // Use _id to find the user
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({ message: 'User deleted' }); // Respond with success message
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting user', error: error.message });
+  }
+});
+
 
 // **Protected Route** - Only accessible with a valid token
 app.get('/protected', async (req, res) => {
