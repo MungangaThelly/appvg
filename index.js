@@ -12,8 +12,6 @@ const User = require('./src/models/User'); // Import your User model
 const app = express();
 const port = 5000;
 
-require('dotenv').config();  // Load environment variables from .env file
-
 app.use(cors());   // Enable CORS for all routes
 app.use(bodyParser.json());
 
@@ -26,15 +24,19 @@ app.use((req, res, next) => {
   next();
 });
 
-
 // JWT secret key (this should be kept in .env or an environment variable)
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
 // **Create User Route**
 app.post('/users', async (req, res) => {
+  const { username, password } = req.body;
+
+  // Input validation
+  if (!username || !password) {
+    return res.status(400).json({ message: 'Username and password are required' });
+  }
+
   try {
-    const { username, password } = req.body;
-    
     // Check if the user already exists
     const userExists = await User.findOne({ username });
     if (userExists) {
@@ -63,6 +65,11 @@ app.post('/users', async (req, res) => {
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   console.log('Received login request for username:', username);
+
+  // Input validation
+  if (!username || !password) {
+    return res.status(400).json({ message: 'Username and password are required' });
+  }
 
   try {
     const user = await User.findOne({ username: username.toLowerCase() });
@@ -97,6 +104,7 @@ app.put('/users/:id', async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Update username and/or password if provided
     if (username) user.username = username;
     if (password) {
       const salt = await bcrypt.genSalt(10);
@@ -146,8 +154,8 @@ app.delete('/users/:id', async (req, res) => {
 
 // **Protected Route** - Only accessible with a valid token
 app.get('/protected', async (req, res) => {
-  const token = req.header('Authorization');
-  
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+
   if (!token) {
     return res.status(401).json({ message: 'Access denied, no token provided' });
   }
