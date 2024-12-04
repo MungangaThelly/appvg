@@ -1,12 +1,20 @@
-const express = require('express')
-const router = express.Router()
-const { registerUser } = require('../controllers/userController')
+const express = require('express');
+const router = express.Router();
+const { createUser, getAllUsers, getUserById, updateUser, deleteUser } = require('../controllers/userController');
 
-// Detta är själva routen/endpointen där vi kallar på funktionen i controllers.
-// Kör jag en post-request mot denna endpoint kallar vi på registerUser-funktionen 
-// och den kommer försöka ta data från requestet och spara användaren i DB. 
-// Det är denna endpoint vi importerar i vår index.js
+// Create a new user
+router.post('/', createUser);
 
-router.post('/', registerUser)
+// Get all users
+router.get('/', getAllUsers);
 
-module.exports = router
+// Get a user by ID
+router.get('/:id', getUserById);
+
+// Update a user by ID
+router.put('/:id', updateUser);
+
+// Delete a user by ID
+router.delete('/:id', deleteUser);
+
+module.exports = router;

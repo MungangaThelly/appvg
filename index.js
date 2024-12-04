@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
+const bodyParser = require('body-parser');
 const connectDB = require('./src/config/db'); // Path to your db.js file
+const authRoutes = require('./src/routes/authRoutes');  // or wherever the auth routes are
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -11,14 +13,18 @@ const port = 5000;
 
 require('dotenv').config();  // Load environment variables from .env file
 
-// Enable CORS for all routes
-app.use(cors());
+app.use(cors());   // Enable CORS for all routes
+app.use(bodyParser.json());
 
-// Connect to MongoDB
-connectDB();
+connectDB();       // Connect to MongoDB
+app.use(express.json()); // Middleware and routes setup
 
-// Middleware and routes setup
-app.use(express.json());
+// Middleware to set CSP headers globally
+app.use((req, res, next) => {
+  res.setHeader("Content-Security-Policy", "default-src 'none'; img-src 'self' data:;");
+  next();
+});
+
 
 // JWT secret key (this should be kept in .env or an environment variable)
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
@@ -52,7 +58,7 @@ app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   
   try {
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ username: username.toLowerCase() });
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
@@ -71,6 +77,31 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// Update User Route (PUT)
+app.put('/users/:id', async (req, res) => {
+  const { id } = req.params;
+  const { username, password } = req.body;
+
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (username) user.username = username;
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(password, salt);
+    }
+
+    await user.save();
+    res.status(200).json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error updating user', error: error.message });
+  }
+});
+
 // **Get User by ID Route**
 app.get('/users/:id', async (req, res) => {
   console.log('Request ID:', req.params.id); // Log the ID to see what ID is being passed
@@ -83,6 +114,24 @@ app.get('/users/:id', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error fetching user', error: error.message });
+  }
+});
+
+// Delete User Route (DELETE)
+app.delete('/users/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    await user.remove();
+    res.status(200).json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error deleting user', error: error.message });
   }
 });
 

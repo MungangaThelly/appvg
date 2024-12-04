@@ -6,7 +6,9 @@ const bcrypt = require('bcryptjs')
 
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
-  password: { type: String, required: true }
+  password: { type: String, required: true },
+  email: { type: String, required: false, unique: false },
+  role: { type: String, default: 'user' },  // Optional: You can add roles like 'admin', 'user', etc.
 })
 
 // Detta är en funktion som körs när man försöker spara en ny användare i vår DB. Den krypterar lösenordet med hjälp av bcrypt.
