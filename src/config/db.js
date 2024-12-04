@@ -1,3 +1,4 @@
+// src/config/db.js
 const mongoose = require('mongoose');
 
 const connectDB = async () => {
@@ -9,14 +10,4 @@ const connectDB = async () => {
   }
 };
 
-// To close the connection
-const closeDB = async () => {
-  try {
-    await mongoose.connection.close();
-    console.log('MongoDB connection closed');
-  } catch (error) {
-    console.error('Error closing MongoDB connection:', error);
-  }
-};
-
-module.exports = { connectDB, closeDB };
+module.exports = connectDB;  // Ensure you're exporting the function correctly
