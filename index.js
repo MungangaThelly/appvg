@@ -1,3 +1,4 @@
+require('dotenv').config();  // Load environment variables from .env file
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -44,8 +45,13 @@ app.post('/users', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Create a new user instance
     const newUser = new User({ username, password: hashedPassword });
+    
+    // Save the new user to the database
     await newUser.save();
+
+    // Respond with the created user
     res.status(201).json(newUser);
   } catch (error) {
     console.error(error);
@@ -56,23 +62,26 @@ app.post('/users', async (req, res) => {
 // **Login Route**
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  
+  console.log('Received login request for username:', username);
+
   try {
     const user = await User.findOne({ username: username.toLowerCase() });
     if (!user) {
+      console.log('User not found');
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      console.log('Password mismatch');
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Generate JWT token
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
+    console.log('Login successful, token:', token);
     res.json({ token });
   } catch (error) {
-    console.error(error);
+    console.error('Error logging in:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
