@@ -2,20 +2,21 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_CONNECTION_STRING);
+    await mongoose.connect(process.env.MONGO_URI);
     console.log('MongoDB connected');
-  } catch (err) {
-    console.error('Error connecting to MongoDB:', err.message);
-    throw new Error('Failed to connect to MongoDB')
+  } catch (error) {
+    console.error('Error connecting to MongoDB:', error);
   }
 };
 
-// Graceful shutdown of the MongoDB connection
-process.on('SIGINT', () => {
-  mongoose.connection.close(() => {
-    console.log('MongoDB connection closed due to app termination');
-    process.exit(0);
-  });
-});
+// To close the connection
+const closeDB = async () => {
+  try {
+    await mongoose.connection.close();
+    console.log('MongoDB connection closed');
+  } catch (error) {
+    console.error('Error closing MongoDB connection:', error);
+  }
+};
 
-module.exports = connectDB;
+module.exports = { connectDB, closeDB };
