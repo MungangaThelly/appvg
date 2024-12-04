@@ -1,3 +1,5 @@
+require('dotenv').config();  // Load environment variables from .env file
+
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./src/config/db'); // Path to your db.js file
@@ -9,7 +11,6 @@ const User = require('./src/models/User'); // Import your User model
 const app = express();
 const port = 5000;
 
-require('dotenv').config();  // Load environment variables from .env file
 
 // Enable CORS for all routes
 app.use(cors());
