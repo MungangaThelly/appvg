@@ -1,23 +1,42 @@
-const mongoose = require('mongoose')
-const bcrypt = require('bcryptjs')
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
-// I denna fil skapar vi en modell för (i detta fall) user. Detta är den modell vi sedan använder för att kunna spara data i vår DB.
-// Skulle vi t.ex vilja att användare ska ha ett födelsedatum vid signup behöver detta specificeras i modellen här.
-
+// User schema definition
 const UserSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  email: { type: String, required: false, unique: false },
-  role: { type: String, default: 'user' },  // Optional: You can add roles like 'admin', 'user', etc.
-})
+  username: { 
+    type: String, 
+    required: true, 
+    unique: true, 
+    minlength: 3 // Example: Minimum length for username
+  },
+  password: { 
+    type: String, 
+    required: true 
+  },
+  email: { 
+    type: String, 
+    unique: true, 
+    required: false, 
+    match: [/\S+@\S+\.\S+/, 'Please provide a valid email address'] 
+  },
+  role: { 
+    type: String, 
+    default: 'user'  // Optional: You can add roles like 'admin', 'user', etc.
+  }
+});
 
-// Detta är en funktion som körs när man försöker spara en ny användare i vår DB. Den krypterar lösenordet med hjälp av bcrypt.
+// Pre-save middleware to hash the password
 UserSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next()
-  const salt = await bcrypt.genSalt(10)
-  this.password = await bcrypt.hash(this.password, salt)
-  next()
-})
+  if (!this.isModified('password')) return next();
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
 
-module.exports = mongoose.model('User', UserSchema)
+// Method to compare passwords (for authentication)
+UserSchema.methods.comparePassword = async function(password) {
+  return bcrypt.compare(password, this.password);
+};
 
+// Export the model
+module.exports = mongoose.model('User', UserSchema);

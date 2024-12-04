@@ -1,14 +1,14 @@
-const express = require('express')
-const requireAuth = require('../middleware/authMiddleware')
-const router = express.Router()
+const express = require('express');
+const requireAuth = require('../middleware/authMiddleware');
+const router = express.Router();
 
-// En skyddad enpoint. Notera att vi har requireAuth som ett argument i funktionen. 
-
+// A protected endpoint - requiring authentication using the requireAuth middleware
 router.get('/', requireAuth, (req, res) => {
+  // Send a response with a message and the authenticated user's information
   res.status(200).json({
     message: 'Welcome to the protected route',
-    user: req.user
-  })
-})
+    user: req.user  // Assuming req.user is set by requireAuth middleware
+  });
+});
 
-module.exports = router
+module.exports = router;
